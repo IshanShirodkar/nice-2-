@@ -25,7 +25,7 @@ export default async function Page() {
             className="min-h-full invert min-w-full object-cover"
           />
         </div>
-        <div className="gradient mt-4 mb-12 text-4xl font-bold">Threads</div>
+        <div className="gradient mt-4 mb-12 text-4xl font-bold">nice</div>
 
         <Link href="/sign-up" className="w-full px-6">
           <Button className="w-full" variant="outline">

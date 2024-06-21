@@ -9,6 +9,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { replyToThread } from "@/lib/actions";
 import { useToast } from "@/components/ui/use-toast";
+import Sentiment from "sentiment";
 
 export function Create({
   itemData,
@@ -30,22 +31,44 @@ export function Create({
 }) {
   const [comment, setComment] = useState("");
   const [clicked, setClicked] = useState(false);
+  const [sentimentScore, setSentimentScore] = useState(0);
 
   const { toast } = useToast();
   const { isSignedIn, isLoaded, user } = useUser();
   const [isPending, startTransition] = useTransition();
   const pathname = usePathname();
 
+  const sentiment = new Sentiment();
+
+  
   useEffect(() => {
     if (clicked && !isPending) {
-      setComment("");
-      setOpen(false);
+      if (sentimentScore < 0) {
+        setOpen(false);
+        toast({
+          title: "Tweet is not positive enough.",
+        });
+      } else {
+        setComment("");
+        setOpen(false);
+        setClicked(false);
+        toast({
+          title: "Replied to thread",
+        });
+      }
       setClicked(false);
-      toast({
-        title: "Replied to thread",
-      });
     }
   }, [isPending]);
+
+  const handleThreadChange = (e: { target: { value: any; }; }) => {
+    const text = e.target.value;
+    if (text.length > 200) return;
+    setComment(text);
+
+    // Analyze sentiment
+    const result = sentiment.analyze(text);
+    setSentimentScore(result.score);
+  };
 
   if (!isLoaded || !isSignedIn) return null;
 
@@ -68,10 +91,7 @@ export function Create({
           <div className="font-semibold text-left">Me</div>
           <textarea
             value={comment}
-            onChange={(e) => {
-              if (e.target.value.length > 200) return;
-              setComment(e.target.value);
-            }}
+            onChange={handleThreadChange}
             className="mt-1 mini-scrollbar text-base/relaxed resize-none h-16 bg-transparent w-full placeholder:text-neutral-600 pb-1 outline-none focus:border-b border-b-neutral-700"
             placeholder={`Reply to ${itemData.author.name}...`}
           />
@@ -87,10 +107,19 @@ export function Create({
         variant="outline"
         className="w-full mt-4"
         onClick={() => {
+          if (sentimentScore < 0) {
+            toast({
+              type: "foreground",
+              title: "Reply is not positive enough.",
+              style: { background: "red", color: "white" },
+            });
+            setClicked(true);
+          } else {
           startTransition(() =>
             replyToThread(comment, user.id, itemData.id, pathname)
           );
           setClicked(true);
+        }
         }}
       >
         {isPending ? (

@@ -6,8 +6,9 @@ import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 
 import { usePathname } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Paperclip } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import Sentiment from 'sentiment';
 
 export function Create({
   setOpen,
@@ -22,22 +23,42 @@ export function Create({
 }) {
   const [thread, setThread] = useState("");
   const [clicked, setClicked] = useState(false);
+  const [sentimentScore, setSentimentScore] = useState(0);
 
   const { toast } = useToast();
 
   const [isPending, startTransition] = useTransition();
   const pathname = usePathname();
 
+  const sentiment = new Sentiment();
+
   useEffect(() => {
     if (clicked && !isPending) {
-      setThread("");
-      setOpen(false);
+      if (sentimentScore < 0) {
+        setOpen(false);
+        toast({
+          title: "Tweet is not positive enough.",
+        });
+      } else {
+        setThread("");
+        setOpen(false);
+        toast({
+          title: "Thread created",
+        });
+      }
       setClicked(false);
-      toast({
-        title: "Thread created",
-      });
     }
   }, [isPending]);
+
+  const handleThreadChange = (e: { target: { value: any; }; }) => {
+    const text = e.target.value;
+    if (text.length > 200) return;
+    setThread(text);
+
+    // Analyze sentiment
+    const result = sentiment.analyze(text);
+    setSentimentScore(result.score);
+  };
 
   return (
     <div>
@@ -58,10 +79,7 @@ export function Create({
           <div className="font-semibold text-left">Me</div>
           <textarea
             value={thread}
-            onChange={(e) => {
-              if (e.target.value.length > 200) return;
-              setThread(e.target.value);
-            }}
+            onChange={handleThreadChange}
             className="mt-1 mini-scrollbar text-base/relaxed resize-none h-16 bg-transparent w-full placeholder:text-neutral-600 pb-1 outline-none focus:border-b border-b-neutral-700"
             placeholder="Start a thread..."
           />
@@ -69,7 +87,7 @@ export function Create({
             {thread.length}/200
           </div>
           {/* for adding attachments in the future */}
-          {/* <Paperclip className="w-[18px] h-[18px] mt-3" /> */}
+          <Paperclip className="w-[18px] h-[18px] mt-3" />
         </div>
       </div>
       <Button
@@ -77,8 +95,17 @@ export function Create({
         variant="outline"
         className="w-full mt-4"
         onClick={() => {
-          startTransition(() => createThread(thread, create.id, pathname));
-          setClicked(true);
+          if (sentimentScore < 0) {
+            toast({
+              type: "foreground",
+              title: "Tweet is not positive enough.",
+              style: { background: "red", color: "white" },
+            });
+            setClicked(true);
+          } else {
+            startTransition(() => createThread(thread, create.id, pathname));
+            setClicked(true);
+          }
         }}
       >
         {isPending ? (
